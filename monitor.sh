@@ -1,12 +1,23 @@
-# Live lock monitor for the PayStrata lab. Run it in a SECOND PowerShell window while a test runs.
-#   .\monitor.ps1               refresh every 6 seconds (default)
-#   .\monitor.ps1 -Interval 2   refresh every 2 seconds
-#   .\monitor.ps1 -Once         one snapshot and exit (use it to validate the monitor)
-#   .\monitor.ps1 -Keep         do not clear the screen: every snapshot stays in the scrollback
+#!/usr/bin/env bash
+# Live lock monitor for the PayStrata lab. Run it in a SECOND terminal while the load test runs.
+#   ./monitor.sh          refresh every 6 seconds (default)
+#   ./monitor.sh 2        refresh every 2 seconds
 # Stop with Ctrl+C.
-param([int]$Interval = 6, [switch]$Once, [switch]$Keep)
+#
+# Defaults to 6 seconds per snapshot, so there is time to explain what is on screen.
+#   ./monitor.sh once        one snapshot and exit (use it to validate the monitor)
+#   ./monitor.sh 10          refresh every 10 seconds
+#   ./monitor.sh 8 keep      do not clear the screen: every snapshot stays in the scrollback
+# To freeze the screen while you talk: Ctrl+S (resume with Ctrl+Q).
 
-$sql = @'
+INTERVAL="${1:-6}"
+MODE="${2:-}"
+
+while true; do
+  [ "$MODE" = "keep" ] || clear
+  echo
+  echo "PayStrata lab monitor   $(date '+%H:%M:%S')   (refresh ${INTERVAL}s, Ctrl+C to stop)"
+  docker exec -i paystrata-db mysql -uroot -ppaystrata paystrata -t 2>/dev/null <<'SQL'
 
 SELECT '1. SESSIONS AND TRANSACTIONS' AS section;
 SELECT COUNT(*)                   AS sessions,
@@ -43,13 +54,7 @@ SELECT (SELECT count FROM information_schema.innodb_metrics
          WHERE VARIABLE_NAME = 'Innodb_row_lock_waits')        AS row_lock_waits_total,
        (SELECT VARIABLE_VALUE FROM performance_schema.global_status
          WHERE VARIABLE_NAME = 'Innodb_row_lock_current_waits') AS waiting_right_now;
-'@
-
-while ($true) {
-    if (-not $Keep) { Clear-Host }
-    Write-Host ""
-    Write-Host ("PayStrata lab monitor   {0}   (refresh {1}s, Ctrl+C to stop)" -f (Get-Date -Format "HH:mm:ss"), $Interval)
-    $sql | docker exec -i paystrata-db mysql -uroot -ppaystrata paystrata -t 2>$null
-    if ($Once) { break }
-    Start-Sleep -Seconds $Interval
-}
+SQL
+  [ "$INTERVAL" = "once" ] && break
+  sleep "$INTERVAL"
+done

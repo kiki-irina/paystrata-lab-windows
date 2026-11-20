@@ -6,8 +6,8 @@ Panels: payments per second, p95 latency, deadlocks. No redesign in this test.
                                writes results/test2.png
 
 First run:
-  docker compose run --rm -T loadgen ramp --variants iodku --out test2_rr
-  docker compose run --rm -T loadgen ramp --variants iodku --isolation "READ COMMITTED" --out test2_rc
+  docker-compose run --rm loadgen ramp --variants iodku --out test2_rr
+  docker-compose run --rm loadgen ramp --variants iodku --isolation "READ COMMITTED" --out test2_rc
 """
 import csv
 

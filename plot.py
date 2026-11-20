@@ -5,7 +5,7 @@ Panels: payments per second, p95 latency, deadlocks.
   python plot.py                                   reads results/test1.csv, writes results/test1.png
   python plot.py results/latest.csv results/x.png  any other CSV and output name
 
-First run:  docker compose run --rm -T loadgen ramp --out test1
+First run:  docker-compose run --rm loadgen ramp --out test1
 """
 import csv
 import sys

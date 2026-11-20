@@ -1,0 +1,121 @@
+PAYSTRATA LAB: WINDOWS (WSL2) SETUP
+===================================
+Session 1: "The Bottleneck That Only Appears at Peak Hours".
+The same lab as the macOS one: the same scripts, the same docker-compose.yml, the same results.
+On Windows the scripts run in WSL2 (a real Ubuntu inside Windows), because they are bash scripts.
+Docker Desktop runs the database. Nothing to rewrite: ./test1.sh, ./test2.sh, ./run_all.sh and
+./monitor.sh work as in LAB_GUIDE.txt.
+
+  Test 1: INSERT ... ON DUPLICATE KEY UPDATE (IODKU) versus UPDATE first, 1 -> 50 sessions
+  Test 2: IODKU under REPEATABLE READ versus READ COMMITTED, 1 -> 50 sessions
+
+
+WHAT YOU NEED (ONCE)
+--------------------
+1. Windows 10 (22H2) or 11 with Docker Desktop (WSL 2 backend, the default).
+   https://www.docker.com/products/docker-desktop/
+   Give it at least 4 CPUs and 8 GB RAM. With WSL 2 this is set in %UserProfile%\.wslconfig
+   (section 3).
+2. WSL2 with Ubuntu (section 1). The lab commands run in the Ubuntu terminal, not in cmd and
+   not in PowerShell. PowerShell is only for the "wsl" commands.
+3. Git and Python 3 inside Ubuntu (section 5). Python is only for the charts.
+4. Port 3307 must be free.
+
+Start Docker Desktop and wait until it says "Engine running".
+
+
+1. INSTALL WSL2 + UBUNTU  (PowerShell as Administrator, once)
+-------------------------------------------------------------
+    wsl --install -d Ubuntu
+    (restart Windows if it asks; then open "Ubuntu" from the Start menu and create a user)
+    wsl --set-default-version 2
+    wsl -l -v                              Ubuntu must show VERSION 2
+
+
+2. INSTALL DOCKER DESKTOP
+-------------------------
+In Docker Desktop > Settings:
+    General                       "Use the WSL 2 based engine"  ON
+    Resources > WSL integration   "Enable integration with my default WSL distro" ON, and Ubuntu ON
+Apply & restart. In the Ubuntu terminal:
+
+    docker compose version
+    docker run --rm hello-world
+
+Both must work.
+
+
+3. GIVE WSL2 ENOUGH CPU AND MEMORY
+----------------------------------
+With WSL2 the limits come from one file. In Windows, create C:\Users\<your user>\.wslconfig
+(a text file, no .txt extension):
+
+    [wsl2]
+    memory=8GB
+    processors=4
+
+Apply it in PowerShell:
+
+    wsl --shutdown
+
+Open Ubuntu and Docker Desktop again. Check inside Ubuntu:
+
+    nproc            number of CPUs (4)
+    free -h          memory (about 8 GB)
+
+
+4. PUT THE LAB IN THE LINUX FILE SYSTEM  (important)
+----------------------------------------------------
+Clone or copy the repository into your Ubuntu home, NOT under /mnt/c/...:
+
+    cd ~
+    git clone https://github.com/kiki-irina/paystrata-lab-windows.git
+    cd paystrata-lab-windows
+    chmod +x *.sh
+
+Why: under /mnt/c the files are slow, and Windows line endings (CRLF) break the scripts
+("bad interpreter", "\r: command not found").
+If you already have CRLF files:     sudo apt install -y dos2unix && dos2unix *.sh
+
+
+5. TOOLS INSIDE UBUNTU  (once)
+------------------------------
+    sudo apt update
+    sudo apt install -y git python3 python3-venv
+
+Charts, once (the tests still run without them; only the PNG charts are not drawn):
+
+    python3 -m venv .venv
+    source .venv/bin/activate
+    python3 -m pip install matplotlib
+    deactivate
+
+
+6. RUN THE LAB
+--------------
+Second terminal first (open another Ubuntu window): the live lock monitor
+
+    cd ~/paystrata-lab-windows && ./monitor.sh
+
+Then, in the first terminal:
+
+    ./run_all.sh                   Test 1, then Test 2, charts in results/, then destroys everything
+    ./test1.sh                     only Test 1 (DESTROY=1 ./test1.sh destroys the database at the end)
+    ./test2.sh                     only Test 2
+    ./setup_env.sh                 only rebuilds the environment, runs no test
+
+Open the charts from Windows:      explorer.exe results
+Connect with a Windows tool:       127.0.0.1 port 3307, user root, password paystrata
+Connect from Ubuntu:               docker exec -it paystrata-db mysql -uroot -ppaystrata paystrata
+The full guide, with every step and the monitor: LAB_GUIDE.txt, DEMO_COMMANDS.md.
+
+
+TROUBLESHOOTING
+---------------
+"bad interpreter: /usr/bin/env bash^M"       CRLF line endings: dos2unix *.sh (see 4)
+"docker: command not found" in Ubuntu         Docker Desktop > Settings > Resources > WSL integration: Ubuntu ON
+"Docker does not answer" in setup_env.sh      start Docker Desktop and wait for "Engine running"
+Test killed or MySQL restarts                 raise memory in .wslconfig (12GB), wsl --shutdown, retry
+Port 3307 busy                                netstat -ano in PowerShell, or change 3307:3306 in docker-compose.yml
+No charts                                     create the .venv (see 5)
+Free the memory after the lab                 PowerShell: wsl --shutdown
